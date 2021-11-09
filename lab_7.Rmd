@@ -1,0 +1,144 @@
+---
+title: "Lab_7"
+author: "Renee LaManna"
+date: "11/9/2021"
+output: html_document
+---
+
+```{r setup, include=TRUE, message = FALSE, warnings = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warnings = FALSE)
+library(tidyverse)
+library(palmerpenguins)
+library(GGally)
+library(broom)
+library(kableExtra)
+library(modelsummary)
+library(stargazer)
+```
+
+## Explore penguins
+
+Use `GGally:ggpairs()` to create pairs plot. 
+
+```{r}
+ggpairs(penguins)
+```
+
+This graph is kind of overkill. Lets simplify variables we include in our ggpairs plot:
+
+-species
+-bill_length_mm through body_mass_g
+-keeping species AND bill_length_mm through body_mass_g
+
+```{r}
+penguins %>% 
+  select(species, bill_length_mm:body_mass_g) %>% 
+  ggpairs(aes(color = species))
+```
+Scatter plot: intersection of 2 species explains relationship?
+Quick way to look at multi variable comparisons and add some groupings
+
+
+## Multiple linear regression 
+
+We are going to try to understand (a bit better) relationships between multiple predictor variables and an outcome variable which is penguin body mass
+
+The different predictor variable we are going to try are:
+
+- species
+- flipper length
+- sex
+- bill length
+
+### Model 1
+
+Model body mass based on only flipper length and bill depth (bad idea, need to look at other important variables that are currently missing, such as sex)
+
+```{r}
+model_1 <- lm(body_mass_g ~ flipper_length_mm + bill_depth_mm, data = penguins)
+
+# Call model by name to return only coefficients:
+model_1
+
+summary(model_1)
+```
+
+If everything else is held constant, for every 1 mm increase flipper length, we expect on average penguins body mass to increase by 51.54 grams if everything else is held constant `r model_1$flipper_length_mm`
+
+76% of variance in penguin body mass (dependent variable) is explained by this model which contains these 2 variable (can also write out these variables.
+
+There is still 24% that is not explained, might be missing some important variables (such as species or sex) that explain remaining of variance
+
+
+Actually -- we think that a model for penguin body mass should contain variables species, flipper length, and penguin sex
+
+```{r}
+model_2 <- lm(body_mass_g ~ flipper_length_mm + species + sex, data = penguins)
+
+# Let's call coefficients 
+model_2
+
+```
+Can only inteprete coeffficents with respect to reference levels? 
+What is the reference level?
+Female = 0
+Adeline = 0
+
+# Try intepretate coeffiecients for 
+
+On average, we expect a gentoo penguin to be 836 grams larger than an adeline if everything else is the same
+On average, we expect a male penguin to be 530 grams larger than a female penguin if everything else is the same
+
+
+## Visualize this model
+
+```{r}
+ggplot(data = penguins, aes(x = flipper_length_mm, y = body_mass_g)) +
+  geom_point(aes(color = species)) +
+  facet_wrap(~ sex)
+```
+Males seem to have a higher body mass on average. Shift will be around 530.38 grams in increase
+We expect on average Gentoo to be 836 grams greater than adeline 
+Chinstrap have 87.62 lower body mass than adeline (not a very big difference, so difficult to see)
+
+## A couple ways to get and report MLR model outcomes
+
+Use broom::tidy() to get model coefficient info in a tidy data frame
+
+```{r}
+penguin_model2_coef <- tidy(model_2)
+
+penguin_model2_coef
+```
+
+Try to write inline code that spits out coefficient for gentoo
+
+`r penguin_model2_coef$estimate` call entire estimate coloumn
+`r penguin_model2_coef$estimate[4]` call 4th element, estimate associated with speciesGentoo
+
+## Look at model diagnostics
+
+Use the plot() function
+
+```{r}
+plot(model_2)
+
+summary(model_2)
+
+```
+- R2 value is much greater after adding sex and species
+
+
+## Report the model outputs in a summary table
+
+Use modelsummary:
+```{r}
+modelsummary(model_2)
+```
+
+Use stargazer - lets it know it will already produce an html output
+
+```{r, results = "asis"}
+stargazer(model_2, model_1, type = "html")
+```
+
